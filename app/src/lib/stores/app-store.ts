@@ -174,7 +174,10 @@ import { readEmoji } from '../read-emoji'
 import { GitStoreCache } from './git-store-cache'
 import { MergeConflictsErrorContext } from '../git-error-context'
 import { setNumber, setBoolean, getBoolean, getNumber } from '../local-storage'
-import { updateChangedFiles } from './helpers/app-store-update-actions'
+import {
+  updateChangedFiles,
+  updateConflictState,
+} from './helpers/app-store-update-actions'
 
 /**
  * As fast-forwarding local branches is proportional to the number of local
@@ -1488,49 +1491,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
       updateChangedFiles(status, clearPartialState, state)
     )
 
-    this.repositoryStateCache.updateChangesState(repository, state => {
-      const prevConflictState = state.conflictState
-      const newConflictState = getConflictState(status)
-
-      if (prevConflictState == null && newConflictState == null) {
-        return { conflictState: null }
-      }
-
-      const previousBranchName =
-        prevConflictState != null ? prevConflictState.currentBranch : null
-      const currentBranchName =
-        newConflictState != null ? newConflictState.currentBranch : null
-
-      const branchNameChanged =
-        previousBranchName != null &&
-        currentBranchName != null &&
-        previousBranchName !== currentBranchName
-
-      // The branch name has changed while remaining conflicted -> the merge must have been aborted
-      if (branchNameChanged) {
-        this.statsStore.recordMergeAbortedAfterConflicts()
-        return { conflictState: newConflictState }
-      }
-
-      const { currentTip } = status
-
-      // if the repository is no longer conflicted, what do we think happened?
-      if (
-        prevConflictState != null &&
-        newConflictState == null &&
-        currentTip != null
-      ) {
-        const previousTip = prevConflictState.currentTip
-
-        if (previousTip !== currentTip) {
-          this.statsStore.recordMergeSuccessAfterConflicts()
-        } else {
-          this.statsStore.recordMergeAbortedAfterConflicts()
-        }
-      }
-
-      return { conflictState: newConflictState }
-    })
+    this.repositoryStateCache.updateChangesState(repository, state =>
+      updateConflictState(status, this.statsStore, state)
+    )
 
     this._triggerMergeConflictsFlow(repository)
 
@@ -3989,23 +3952,4 @@ function getBehindOrDefault(aheadBehind: IAheadBehind | null): number {
   }
 
   return aheadBehind.behind
-}
-
-/**
- * Convert the received status information into a conflict state
- */
-function getConflictState(status: IStatusResult): IConflictState | null {
-  if (!status.mergeHeadFound) {
-    return null
-  }
-
-  const { currentBranch, currentTip } = status
-  if (currentBranch == null || currentTip == null) {
-    return null
-  }
-
-  return {
-    currentBranch,
-    currentTip,
-  }
 }
