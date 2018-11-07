@@ -88,7 +88,6 @@ import {
   MergeResultStatus,
   ComparisonMode,
   SuccessfulMergeBannerState,
-  IConflictState,
 } from '../app-state'
 import { IGitHubUser } from '../databases/github-user-database'
 import {
@@ -128,7 +127,6 @@ import {
   updateRef,
   saveGitIgnore,
   appendIgnoreRule,
-  IStatusResult,
   createMergeCommit,
   getBranchesPointedAt,
 } from '../git'
